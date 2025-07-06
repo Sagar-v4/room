@@ -8,4 +8,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     strategy: 'jwt',
   },
   providers: [Google, GitHub],
+  callbacks: {
+    authorized: async ({ auth, request: { nextUrl } }) => {
+      const homePageURL = '/';
+      const isLoggedIn = !!auth?.user;
+      const isOnHomePage = nextUrl.pathname === homePageURL;
+
+      if (isLoggedIn || isOnHomePage) {
+        return true;
+      } else {
+        return Response.redirect(new URL(homePageURL, nextUrl));
+      }
+    },
+  },
 });

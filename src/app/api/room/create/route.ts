@@ -20,12 +20,13 @@ export async function GET(req: NextRequest) {
 
       const existingData = await redis.get(code);
       if (!existingData) {
-        const data = {
-          [userToken.email as string]: userToken.name as string,
-        };
-        await redis.set(code, data, {
-          ex: ttl,
-        });
+        await redis.set(
+          code,
+          {},
+          {
+            ex: ttl,
+          },
+        );
         break;
       }
 
