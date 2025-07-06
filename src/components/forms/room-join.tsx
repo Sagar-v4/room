@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { toast } from 'sonner';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { LoaderCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMediaQuery } from '@/hooks/use-media-query';
@@ -26,6 +26,7 @@ import {
   DrawerTrigger,
 } from '@/components/ui/drawer';
 import { Input } from '@/components/ui/input';
+import { room } from '@/api/routes';
 
 export function RoomJoinForm() {
   const [open, setOpen] = React.useState(false);
@@ -75,32 +76,40 @@ export function RoomJoinForm() {
 
 function Form({ className }: React.ComponentProps<'form'>) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = React.useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    setIsLoading(true);
-    try {
-      e.preventDefault();
+  const codeFieldName = String(process.env.ROOM_CODE_FIELD_NAME);
+  const paramCodeValue = searchParams.get(codeFieldName) || '';
 
-      const formData = new FormData(e.target as HTMLFormElement);
-      const res = await fetch('/api/room/exist', {
-        method: 'POST',
-        body: formData,
-      });
+  const handleSubmit = React.useCallback(
+    async (e: React.FormEvent) => {
+      try {
+        setIsLoading(true);
+        e.preventDefault();
 
-      const data = await res.json();
-      if (!data.code) {
-        toast.error('Invalid code or link!');
-        return;
+        const formData = new FormData(e.target as HTMLFormElement);
+
+        const res = await fetch(room.exist.url, {
+          method: room.exist.method,
+          body: formData,
+        });
+
+        const data = await res.json();
+        if (!data[codeFieldName]) {
+          toast.error('Invalid code or link!');
+          return;
+        }
+
+        router.push('/' + data[codeFieldName]);
+      } catch (err) {
+        toast.error((err as Error).message);
+      } finally {
+        setIsLoading(false);
       }
-
-      router.push('/' + data.code);
-    } catch (err) {
-      toast.error((err as Error).message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    },
+    [codeFieldName, router],
+  );
 
   return (
     <form
@@ -110,8 +119,9 @@ function Form({ className }: React.ComponentProps<'form'>) {
       <div className="grid gap-3">
         <Input
           autoFocus
-          name="code"
+          name={codeFieldName}
           disabled={isLoading}
+          defaultValue={paramCodeValue}
           placeholder="Enter a code or link"
         />
       </div>

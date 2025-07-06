@@ -6,33 +6,39 @@ import { toast } from 'sonner';
 import { LoaderCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { room } from '@/api/routes';
 
 export function RoomCreateForm({ className }: React.ComponentProps<'form'>) {
   const router = useRouter();
   const [isLoading, setIsLoading] = React.useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    setIsLoading(true);
-    try {
-      e.preventDefault();
+  const codeFieldName = String(process.env.ROOM_CODE_FIELD_NAME);
 
-      const res = await fetch('/api/room/create', {
-        method: 'GET',
-      });
+  const handleSubmit = React.useCallback(
+    async (e: React.FormEvent) => {
+      try {
+        setIsLoading(true);
+        e.preventDefault();
 
-      const data = await res.json();
-      if (!data.code) {
-        toast.error('Invalid code or link!');
-        return;
+        const res = await fetch(room.create.url, {
+          method: room.create.method,
+        });
+
+        const data = await res.json();
+        if (!data[codeFieldName]) {
+          toast.error('Invalid code or link!');
+          return;
+        }
+
+        router.push('/' + data[codeFieldName]);
+      } catch (err) {
+        toast.error((err as Error).message);
+      } finally {
+        setIsLoading(false);
       }
-
-      router.push('/' + data.code);
-    } catch (err) {
-      toast.error((err as Error).message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    },
+    [codeFieldName, router],
+  );
 
   return (
     <form

@@ -4,23 +4,25 @@ import { authjsDecodeJWT } from '@/lib/authjs-decode-jwt';
 
 export async function POST(req: NextRequest) {
   try {
+    const ttl = Number(process.env.ROOM_TTL_IN_SEC);
+    const codeLength = Number(process.env.ROOM_CODE_LENGTH);
+    const codeFieldName = String(process.env.ROOM_CODE_FIELD_NAME);
+
     const userToken = await authjsDecodeJWT(req);
     if (!userToken) {
-      return NextResponse.json({ code: null });
+      return NextResponse.json({ [codeFieldName]: null });
     }
 
     const formData = await req.formData();
-    const code = formData.get('code')?.toString().trim() || '';
-    const ttl = Number(process.env.ROOM_TTL_IN_SEC);
-    const codeLength = Number(process.env.ROOM_CODE_LENGTH);
+    const code = formData.get(codeFieldName)?.toString().trim();
 
-    if (code.length < codeLength) {
-      return NextResponse.json({ code: null });
+    if (!code || code.length < codeLength) {
+      return NextResponse.json({ [codeFieldName]: null });
     }
 
     const existingData = await redis.get(code);
     if (!existingData) {
-      return NextResponse.json({ code: null });
+      return NextResponse.json({ [codeFieldName]: null });
     }
 
     const data = {
@@ -31,7 +33,7 @@ export async function POST(req: NextRequest) {
       ex: ttl,
     });
 
-    return NextResponse.json({ code });
+    return NextResponse.json({ [codeFieldName]: code });
   } catch (err) {
     console.log('🚀 ~ POST ~ err:', err);
     throw NextResponse.error();

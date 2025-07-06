@@ -3,41 +3,44 @@
 import * as React from 'react';
 import { LoaderCircle } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
+import { room } from '@/api/routes';
+import { toast } from 'sonner';
 
 export default function Room() {
   const params = useParams();
   const router = useRouter();
-  const { code } = params;
   const [isLoading, setIsLoading] = React.useState(false);
 
-  React.useEffect(() => {
-    const joinRoom = async () => {
+  const { code } = params;
+  const codeFieldName = String(process.env.ROOM_CODE_FIELD_NAME);
+
+  const joinRoom = React.useCallback(async () => {
+    try {
       setIsLoading(true);
-      try {
-        const API_URL =
-          process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
-        const formData = new FormData();
-        formData.append('code', code as string);
+      const formData = new FormData();
+      formData.append(codeFieldName, code as string);
 
-        const res = await fetch(`${API_URL}/api/room/join`, {
-          method: 'POST',
-          body: formData,
-        });
+      const res = await fetch(room.join.url, {
+        method: room.join.method,
+        body: formData,
+      });
 
-        const data = await res.json();
-        if (!data.code) {
-          router.push('/');
-        }
-      } catch (err) {
-        console.log('🚀 ~ joinRoom ~ err:', err);
+      const data = await res.json();
+      if (!data[codeFieldName]) {
         router.push('/');
-      } finally {
-        setIsLoading(false);
       }
-    };
+    } catch (err) {
+      toast.error((err as Error).message);
+      router.push('/');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [code, codeFieldName, router]);
+
+  React.useEffect(() => {
     joinRoom();
-  }, []); // eslint-disable-line
+  }, [joinRoom]);
 
   return (
     <>
@@ -46,7 +49,7 @@ export default function Room() {
           <LoaderCircle className="scale-200 animate-spin" />
         </div>
       ) : (
-        <>Not Loading</>
+        <>{code}</>
       )}
     </>
   );
