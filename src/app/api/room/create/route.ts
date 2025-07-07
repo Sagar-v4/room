@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     }
 
     const code = generate();
-    const data: Code = {
+    const data: Room = {
       participants: null,
       lastJoinedAt: 0,
       lastFetchedAt: 0,

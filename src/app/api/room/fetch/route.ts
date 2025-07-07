@@ -22,32 +22,29 @@ export async function POST(req: NextRequest) {
 
     const roomData: Room | null = await redis.get(code);
     if (!roomData) {
-      return NextResponse.json({ [codeFieldName]: null });
+      return NextResponse.json({
+        [codeFieldName]: null,
+        participants: null,
+      });
     }
 
-    const participant: Participants = {
-      [userToken?.sub as string]: {
-        name: userToken.name ?? '',
-        email: userToken.email ?? '',
-        picture: userToken.picture ?? '',
-      },
-    };
+    if (roomData.lastJoinedAt > roomData.lastFetchedAt) {
+      const data: Room = {
+        ...roomData,
+        participants: null,
+        lastFetchedAt: Date.now(),
+      };
+      await redis.set(code, data, {
+        ex: ttl,
+      });
+    }
 
-    const data: Room = {
-      ...roomData,
-      participants: {
-        ...roomData.participants,
-        ...participant,
-      },
-      lastJoinedAt: Date.now(),
-    };
-    await redis.set(code, data, {
-      ex: ttl,
+    return NextResponse.json({
+      [codeFieldName]: code,
+      participants: roomData.participants,
     });
-
-    return NextResponse.json({ [codeFieldName]: code });
   } catch (err) {
-    console.log('🚀 ~ join ~ err:', err);
+    console.log('🚀 ~ fetch ~ err:', err);
     throw NextResponse.error();
   }
 }

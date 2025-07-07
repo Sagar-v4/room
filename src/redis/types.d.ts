@@ -1,4 +1,4 @@
-type Code = {
+type Room = {
   participants: Participants | null;
   lastJoinedAt: number;
   lastFetchedAt: number;
