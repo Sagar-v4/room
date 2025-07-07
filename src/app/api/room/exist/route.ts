@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { redis } from '@/redis';
 import { isValidUrl } from '@/lib/is-valid-url';
 import { authjsDecodeJWT } from '@/lib/authjs-decode-jwt';
+import { verify } from '@/lib/room-code';
 
 export async function POST(req: NextRequest) {
   try {
-    const codeLength = Number(process.env.ROOM_CODE_LENGTH);
     const codeFieldName = String(process.env.ROOM_CODE_FIELD_NAME);
 
     const userToken = await authjsDecodeJWT(req);
@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
     let code = formData.get(codeFieldName)?.toString().trim();
 
-    if (!code || code.length < codeLength) {
+    if (!code || !verify(code)) {
       return NextResponse.json({ [codeFieldName]: null });
     }
 
@@ -25,14 +25,14 @@ export async function POST(req: NextRequest) {
       code = code.substring(lastSlashIndex + 1).trim();
     }
 
-    const roomExist = await redis.get(code);
-    if (!roomExist) {
+    const roomExist = await redis.exists(code);
+    if (roomExist === 0) {
       return NextResponse.json({ [codeFieldName]: null });
     }
 
     return NextResponse.json({ [codeFieldName]: code });
   } catch (err) {
-    console.log('🚀 ~ POST ~ err:', err);
+    console.log('🚀 ~ exist ~ err:', err);
     throw NextResponse.error();
   }
 }
