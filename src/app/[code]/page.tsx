@@ -1,7 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import { toast } from 'sonner';
 import { LoaderCircle } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import { room } from '@/api/routes';
@@ -9,15 +8,16 @@ import { room } from '@/api/routes';
 export default function Room() {
   const params = useParams();
   const router = useRouter();
-  const [isRoomFinding, setIsRoomFinding] = React.useState(true);
-  const [isRoomJoining, setIsRoomJoining] = React.useState(false);
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [loadingMessage, setLoadingMessage] = React.useState('Welcome!');
 
   const { code } = params;
   const codeFieldName = String(process.env.ROOM_CODE_FIELD_NAME);
 
   const joinRoom = React.useCallback(async () => {
     try {
-      setIsRoomFinding(true);
+      setIsLoading(true);
+      setLoadingMessage('Finding room...');
 
       const formData = new FormData();
       formData.append(codeFieldName, code as string);
@@ -29,14 +29,15 @@ export default function Room() {
 
       const data = await res.json();
       if (!data[codeFieldName]) {
+        setLoadingMessage('Room not Found!');
         router.push('/');
       }
+      setLoadingMessage('Joining room...');
     } catch (err) {
-      toast.error((err as Error).message);
+      setLoadingMessage((err as Error).message);
       router.push('/');
     } finally {
-      setIsRoomFinding(false);
-      setIsRoomJoining(true); // TODO: later remove
+      setIsLoading(false);
     }
   }, [code, codeFieldName, router]);
 
@@ -46,15 +47,11 @@ export default function Room() {
 
   return (
     <div>
-      {isRoomFinding || isRoomJoining ? (
+      {isLoading ? (
         <>
           <div className="absolute w-full z-50 h-screen flex justify-center items-center bg-black/50 flex-col gap-y-4 text-white ">
             <LoaderCircle className="scale-140 animate-spin" />
-            {isRoomFinding ? (
-              <span className="scale-200">Finding room...</span>
-            ) : isRoomJoining ? (
-              <span className="scale-200">Joining room...</span>
-            ) : null}
+            <span className="scale-200">{loadingMessage}</span>
           </div>
         </>
       ) : null}
