@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { redis } from '@/redis';
 import { authjsDecodeJWT } from '@/lib/authjs-decode-jwt';
 import { verify } from '@/lib/room-code';
-import { CODE_FIELD_NAME, PEER_ID_FIELD_NAME } from '@/static/const';
+import {
+  CODE_FIELD_NAME,
+  PEER_ID_FIELD_NAME,
+  UNIQUE_USER_ID_FIELD_NAME,
+} from '@/static/const';
 
 export async function POST(req: NextRequest) {
   try {
@@ -27,8 +31,9 @@ export async function POST(req: NextRequest) {
 
     const peer_id = formData.get(PEER_ID_FIELD_NAME)?.toString().trim();
 
-    if (peer_id && userToken.sub) {
-      roomData.participants[userToken.sub] = peer_id;
+    const uuid = userToken[UNIQUE_USER_ID_FIELD_NAME] as string;
+    if (peer_id && uuid) {
+      roomData.participants[uuid] = peer_id;
       await redis.set(code, roomData, {
         ex: ttl,
       });

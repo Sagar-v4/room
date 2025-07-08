@@ -2,7 +2,7 @@ import NextAuth from 'next-auth';
 import Google from 'next-auth/providers/google';
 import GitHub from 'next-auth/providers/github';
 import { verify } from '@/lib/room-code';
-import { CODE_FIELD_NAME } from '@/static/const';
+import { CODE_FIELD_NAME, UNIQUE_USER_ID_FIELD_NAME } from '@/static/const';
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   trustHost: true,
@@ -39,6 +39,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
 
       return Response.redirect(redirectURL);
+    },
+    async jwt({ token, account }) {
+      if (account) {
+        const uniqueUserId = `${account.provider}:${account?.providerAccountId}`;
+        token[UNIQUE_USER_ID_FIELD_NAME] = uniqueUserId;
+      }
+      return token;
+    },
+    async session({ token, session }) {
+      session.user.id = token[UNIQUE_USER_ID_FIELD_NAME] as string;
+      return session;
     },
   },
 });

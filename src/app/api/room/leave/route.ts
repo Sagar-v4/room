@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { redis } from '@/redis';
 import { authjsDecodeJWT } from '@/lib/authjs-decode-jwt';
 import { verify } from '@/lib/room-code';
-import { CODE_FIELD_NAME } from '@/static/const';
+import { CODE_FIELD_NAME, UNIQUE_USER_ID_FIELD_NAME } from '@/static/const';
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,9 +21,10 @@ export async function POST(req: NextRequest) {
     }
 
     const roomData: Room | null = await redis.get(code);
+    const uuid = userToken[UNIQUE_USER_ID_FIELD_NAME] as string;
 
-    if (roomData && userToken.sub) {
-      delete roomData.participants[userToken.sub];
+    if (roomData && uuid) {
+      delete roomData.participants[uuid];
       await redis.set(code, roomData, {
         ex: ttl,
       });
