@@ -12,14 +12,15 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ [CODE_FIELD_NAME]: null });
     }
 
-    let code = req.nextUrl.searchParams.get(CODE_FIELD_NAME)?.trim();
-    if (!code || !verify(code)) {
-      return NextResponse.json({ [CODE_FIELD_NAME]: null });
+    let code = req.nextUrl.searchParams.get(CODE_FIELD_NAME)?.trim() ?? '';
+
+    const url = isValidUrl(code);
+    if (url) {
+      code = url.pathname.split('/').at(1) ?? '';
     }
 
-    if (isValidUrl(code)) {
-      const lastSlashIndex = code.lastIndexOf('/');
-      code = code.substring(lastSlashIndex + 1).trim();
+    if (!code || !verify(code)) {
+      return NextResponse.json({ [CODE_FIELD_NAME]: null });
     }
 
     const roomExist = await redis.exists(code);
