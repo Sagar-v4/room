@@ -1,13 +1,7 @@
 type Room = {
-  participants: Participants | null;
-  lastJoinedAt: number;
-  lastFetchedAt: number;
+  participants: Participants;
 };
 
 type Participants = {
-  [sub: string]: {
-    name: string;
-    email: string;
-    picture: string;
-  };
+  [sub: string]: string;
 };

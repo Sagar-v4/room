@@ -1,8 +1,8 @@
 import { v1, v4, v6, v7, validate, version } from 'uuid';
+import { CODE_UUID_VERSION } from '@/static/const';
 
 export function generate() {
-  const ver = Number(process.env.ROOM_CODE_UUID_VER);
-  switch (ver) {
+  switch (CODE_UUID_VERSION) {
     case 1: {
       return v1();
     }
@@ -21,7 +21,5 @@ export function generate() {
 }
 
 export function verify(uuid: string) {
-  const ver = Number(process.env.ROOM_CODE_UUID_VER);
-
-  return validate(uuid) && version(uuid) === ver;
+  return validate(uuid) && version(uuid) === CODE_UUID_VERSION;
 }

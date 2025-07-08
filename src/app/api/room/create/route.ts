@@ -2,30 +2,28 @@ import { NextRequest, NextResponse } from 'next/server';
 import { redis } from '@/redis';
 import { authjsDecodeJWT } from '@/lib/authjs-decode-jwt';
 import { generate } from '@/lib/room-code';
+import { CODE_FIELD_NAME } from '@/static/const';
 
 export async function GET(req: NextRequest) {
   try {
     const ttl = Number(process.env.ROOM_TTL_IN_SEC);
-    const codeFieldName = String(process.env.ROOM_CODE_FIELD_NAME);
 
     const userToken = await authjsDecodeJWT(req);
     if (!userToken) {
-      return NextResponse.json({ [codeFieldName]: null });
+      return NextResponse.json({ [CODE_FIELD_NAME]: null });
     }
 
     const code = generate();
     const data: Room = {
-      participants: null,
-      lastJoinedAt: 0,
-      lastFetchedAt: 0,
+      participants: {},
     };
     await redis.set(code, data, {
       ex: ttl,
     });
 
-    return NextResponse.json({ [codeFieldName]: code });
+    return NextResponse.json({ [CODE_FIELD_NAME]: code });
   } catch (err) {
-    console.log('🚀 ~ create ~ err:', err);
+    console.log('💥 ~ create ~ err:', err);
     throw NextResponse.error();
   }
 }

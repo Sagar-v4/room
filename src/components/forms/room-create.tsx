@@ -7,12 +7,11 @@ import { LoaderCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { room } from '@/api/routes';
+import { CODE_FIELD_NAME } from '@/static/const';
 
 export function RoomCreateForm({ className }: React.ComponentProps<'form'>) {
   const router = useRouter();
   const [isLoading, setIsLoading] = React.useState(false);
-
-  const codeFieldName = String(process.env.ROOM_CODE_FIELD_NAME);
 
   const handleSubmit = React.useCallback(
     async (e: React.FormEvent) => {
@@ -25,19 +24,19 @@ export function RoomCreateForm({ className }: React.ComponentProps<'form'>) {
         });
 
         const data = await res.json();
-        if (!data[codeFieldName]) {
+        if (!data[CODE_FIELD_NAME]) {
           toast.error('Invalid code or link!');
           return;
         }
 
-        router.push('/' + data[codeFieldName]);
+        router.push('/' + data[CODE_FIELD_NAME]);
       } catch (err) {
         toast.error((err as Error).message);
       } finally {
         setIsLoading(false);
       }
     },
-    [codeFieldName, router],
+    [router],
   );
 
   return (

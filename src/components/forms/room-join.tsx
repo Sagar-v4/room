@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/drawer';
 import { Input } from '@/components/ui/input';
 import { room } from '@/api/routes';
+import { CODE_FIELD_NAME } from '@/static/const';
 
 export function RoomJoinForm() {
   const [open, setOpen] = React.useState(false);
@@ -78,9 +79,7 @@ function Form({ className }: React.ComponentProps<'form'>) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = React.useState(false);
-
-  const codeFieldName = String(process.env.ROOM_CODE_FIELD_NAME);
-  const paramCodeValue = searchParams.get(codeFieldName) || '';
+  const paramCodeValue = searchParams.get(CODE_FIELD_NAME) || '';
 
   const handleSubmit = React.useCallback(
     async (e: React.FormEvent) => {
@@ -88,27 +87,28 @@ function Form({ className }: React.ComponentProps<'form'>) {
         setIsLoading(true);
         e.preventDefault();
 
-        const formData = new FormData(e.target as HTMLFormElement);
-
-        const res = await fetch(room.exist.url, {
-          method: room.exist.method,
-          body: formData,
-        });
+        const code = (e.target as HTMLFormElement)[CODE_FIELD_NAME].value;
+        const res = await fetch(
+          `${room.exist.url}?${room.exist.searchParams.CODE_FIELD_NAME}=${code}`,
+          {
+            method: room.exist.method,
+          },
+        );
 
         const data = await res.json();
-        if (!data[codeFieldName]) {
+        if (!data[CODE_FIELD_NAME]) {
           toast.error('Invalid code or link!');
           return;
         }
 
-        router.push('/' + data[codeFieldName]);
+        router.push('/' + data[CODE_FIELD_NAME]);
       } catch (err) {
         toast.error((err as Error).message);
       } finally {
         setIsLoading(false);
       }
     },
-    [codeFieldName, router],
+    [router],
   );
 
   return (
@@ -119,7 +119,7 @@ function Form({ className }: React.ComponentProps<'form'>) {
       <div className="grid gap-3">
         <Input
           autoFocus
-          name={codeFieldName}
+          name={CODE_FIELD_NAME}
           disabled={isLoading}
           defaultValue={paramCodeValue}
           placeholder="Enter a code or link"

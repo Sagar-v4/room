@@ -2,6 +2,7 @@ import NextAuth from 'next-auth';
 import Google from 'next-auth/providers/google';
 import GitHub from 'next-auth/providers/github';
 import { verify } from '@/lib/room-code';
+import { CODE_FIELD_NAME } from '@/static/const';
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   trustHost: true,
@@ -29,13 +30,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         return true;
       }
 
-      const codeFieldName = String(process.env.ROOM_CODE_FIELD_NAME);
-
       const code = nextUrl.pathname.split('/').at(1);
       const redirectURL = new URL(homePageURL, nextUrl);
 
       if (code && verify(code)) {
-        redirectURL.searchParams.append(codeFieldName, code);
+        redirectURL.searchParams.append(CODE_FIELD_NAME, code);
         return Response.redirect(redirectURL);
       }
 

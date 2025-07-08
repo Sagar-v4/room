@@ -3,21 +3,18 @@ import { redis } from '@/redis';
 import { isValidUrl } from '@/lib/is-valid-url';
 import { authjsDecodeJWT } from '@/lib/authjs-decode-jwt';
 import { verify } from '@/lib/room-code';
+import { CODE_FIELD_NAME } from '@/static/const';
 
-export async function POST(req: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
-    const codeFieldName = String(process.env.ROOM_CODE_FIELD_NAME);
-
     const userToken = await authjsDecodeJWT(req);
     if (!userToken) {
-      return NextResponse.json({ [codeFieldName]: null });
+      return NextResponse.json({ [CODE_FIELD_NAME]: null });
     }
 
-    const formData = await req.formData();
-    let code = formData.get(codeFieldName)?.toString().trim();
-
+    let code = req.nextUrl.searchParams.get(CODE_FIELD_NAME)?.trim();
     if (!code || !verify(code)) {
-      return NextResponse.json({ [codeFieldName]: null });
+      return NextResponse.json({ [CODE_FIELD_NAME]: null });
     }
 
     if (isValidUrl(code)) {
@@ -27,12 +24,12 @@ export async function POST(req: NextRequest) {
 
     const roomExist = await redis.exists(code);
     if (roomExist === 0) {
-      return NextResponse.json({ [codeFieldName]: null });
+      return NextResponse.json({ [CODE_FIELD_NAME]: null });
     }
 
-    return NextResponse.json({ [codeFieldName]: code });
+    return NextResponse.json({ [CODE_FIELD_NAME]: code });
   } catch (err) {
-    console.log('🚀 ~ exist ~ err:', err);
+    console.log('💥 ~ exist ~ err:', err);
     throw NextResponse.error();
   }
 }
