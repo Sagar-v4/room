@@ -11,7 +11,13 @@ import { room } from '@/api/routes';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { isChatExist, useChatActions, useChats } from '@/store/chats';
-import { usePeers, useProfiles, useUserActions } from '@/store/users';
+import {
+  getPeer,
+  usePeers,
+  getProfile,
+  useProfiles,
+  useUserActions,
+} from '@/store/users';
 import {
   CHAT_GRP_ROOM_NAME,
   CODE_FIELD_NAME,
@@ -49,7 +55,8 @@ export default function Room() {
           break;
         }
         case 'INIT_RECEIVED': {
-          addUser((data as Data).data as User, conn);
+          const user = (data as Data).data as User;
+          addUser(user, conn);
           if (session) {
             const initData: Data = {
               type: 'INIT_DONE',
@@ -57,10 +64,17 @@ export default function Room() {
             };
             conn.send(initData);
           }
+          toast.info(`${user.name} Joined`, {
+            position: 'bottom-left',
+          });
           break;
         }
         case 'INIT_DONE': {
-          // addUser((data as Data).data as User, conn);
+          const user = (data as Data).data as User;
+          addUser(user, conn);
+          toast.info(`You Joined`, {
+            position: 'bottom-left',
+          });
           break;
         }
         case 'MSG': {
@@ -94,6 +108,11 @@ export default function Room() {
 
       conn.on('close', () => {
         console.log('Data channel closed: openDataConnection');
+        const peer = getPeer(conn.peer);
+        const user = getProfile(peer.userProviderId);
+        toast.info(`${user.name} Left`, {
+          position: 'bottom-left',
+        });
         removePeer(conn.peer);
       });
 
@@ -117,6 +136,11 @@ export default function Room() {
 
       conn.on('close', () => {
         console.log('Data channel closed: incomingDataConnection');
+        const peer = getPeer(conn.peer);
+        const user = getProfile(peer.userProviderId);
+        toast.info(`${user.name} Left`, {
+          position: 'bottom-left',
+        });
         removePeer(conn.peer);
       });
 
@@ -227,7 +251,7 @@ export default function Room() {
   const handleSendGroupMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (!session?.user?.id) return;
-    const author = session?.user?.id;
+    const author = session?.user?.id as UserProviderId;
 
     const message: Message = {
       author: author,
@@ -256,7 +280,7 @@ export default function Room() {
   const handleSendPrivateMessage = (peerId: string, e: React.FormEvent) => {
     e.preventDefault();
     if (!session?.user?.id) return;
-    const user = peers[peerId].uuid;
+    const user = peers[peerId].userProviderId;
     const local = session?.user?.id;
 
     const message: Message = {
@@ -342,14 +366,18 @@ export default function Room() {
         {Object.values(peers).map(({ conn }) => {
           return (
             <div className="m-6" key={conn.peer}>
-              <div className="p-2 border-1 overflow-scroll rounded-md">
-                {chats[peers[conn.peer].uuid]?.messages.map((msg, index) => (
-                  <div key={index.toString()}>
-                    <p>Author: {msg.author}</p>
-                    <p>Content: {msg.content}</p>
-                    <p>Timestamp: {new Date(msg.timestamp).toLocaleString()}</p>
-                  </div>
-                ))}
+              <div className="mb-6 p-2 border-1 overflow-scroll rounded-md">
+                {chats[peers[conn.peer].userProviderId]?.messages.map(
+                  (msg, index) => (
+                    <div key={index.toString()}>
+                      <p>Author: {msg.author}</p>
+                      <p>Content: {msg.content}</p>
+                      <p>
+                        Timestamp: {new Date(msg.timestamp).toLocaleString()}
+                      </p>
+                    </div>
+                  ),
+                )}
               </div>
               <form
                 key={conn.peer}
@@ -362,7 +390,7 @@ export default function Room() {
                     placeholder="Type a message..."
                   />
                   <Button type="submit" variant="default">
-                    <Send /> {profiles[peers[conn.peer].uuid].email}
+                    <Send /> {profiles[peers[conn.peer].userProviderId].email}
                   </Button>
                 </div>
               </form>

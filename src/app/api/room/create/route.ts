@@ -16,6 +16,7 @@ export async function GET(req: NextRequest) {
     const code = generate();
     const data: Room = {
       participants: {},
+      blocks: [],
     };
     await redis.set(code, data, {
       ex: ttl,

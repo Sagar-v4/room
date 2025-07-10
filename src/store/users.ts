@@ -4,22 +4,22 @@ import { DataConnection } from 'peerjs';
 
 export type Store = {
   profiles: {
-    [uuid: string]: Profile;
+    [id: UserProviderId]: Profile;
   };
   peers: {
     [peer: string]: {
-      uuid: string;
+      userProviderId: UserProviderId;
       conn: DataConnection;
     };
   };
   actions: {
-    addProfile: (uuid: string, profile: Profile) => void;
-    removeProfile: (uuid: string) => void;
+    addProfile: (id: UserProviderId, profile: Profile) => void;
+    removeProfile: (id: UserProviderId) => void;
     addPeer: (peer: string, conn: DataConnection) => void;
     removePeer: (peer: string) => void;
     addUser: (user: User, conn: DataConnection) => void;
-    removeUserByProfileUUID: (uuid: string) => void;
-    removeUserByPeerID: (peer: string) => void;
+    removeUserByProfileId: (id: UserProviderId) => void;
+    removeUserByPeerId: (peer: string) => void;
   };
 };
 
@@ -34,17 +34,17 @@ export const useUsersStore = create<Store>()((set) => ({
   profiles: {},
   peers: {},
   actions: {
-    addProfile: (uuid: string, profile: Profile) => {
+    addProfile: (id: UserProviderId, profile: Profile) => {
       set((state) => ({
         ...state,
-        profiles: { ...state.profiles, [uuid]: profile },
+        profiles: { ...state.profiles, [id]: profile },
       }));
     },
 
-    removeProfile: (uuid: string) => {
+    removeProfile: (id: UserProviderId) => {
       set((state) => {
         const newProfiles = { ...state.profiles };
-        delete newProfiles[uuid];
+        delete newProfiles[id];
         return {
           ...state,
           profiles: newProfiles,
@@ -77,11 +77,12 @@ export const useUsersStore = create<Store>()((set) => ({
     },
 
     addUser: (user: User, conn: DataConnection) => {
+      const userProviderId = user.id as UserProviderId;
       set((state) => ({
         ...state,
         profiles: {
           ...state.profiles,
-          [String(user.id)]: {
+          [userProviderId]: {
             peer: conn.peer,
             name: user.name ?? '',
             email: user.email ?? '',
@@ -92,24 +93,24 @@ export const useUsersStore = create<Store>()((set) => ({
           ...state.peers,
           [conn.peer]: {
             conn: conn,
-            uuid: String(user.id),
+            userProviderId: userProviderId,
           },
         },
       }));
     },
 
-    removeUserByProfileUUID: (uuid: string) => {
+    removeUserByProfileId: (id: UserProviderId) => {
       set((state) => {
-        const profileToRemove = state.profiles[uuid];
+        const profileToRemove = state.profiles[id];
         if (!profileToRemove) {
-          console.warn(`💥 Profile with UUID ${uuid} not found for removal.`);
+          console.warn(`💥 Profile with UUID ${id} not found for removal.`);
           return state;
         }
 
         const peerToRemove = profileToRemove.peer;
 
         const newProfiles = { ...state.profiles };
-        delete newProfiles[uuid];
+        delete newProfiles[id];
 
         const newPeers = { ...state.peers };
         delete newPeers[peerToRemove];
@@ -122,7 +123,7 @@ export const useUsersStore = create<Store>()((set) => ({
       });
     },
 
-    removeUserByPeerID: (peer: string) => {
+    removeUserByPeerId: (peer: string) => {
       set((state) => {
         const peerDataToRemove = state.peers[peer];
         if (!peerDataToRemove) {
@@ -130,10 +131,10 @@ export const useUsersStore = create<Store>()((set) => ({
           return state;
         }
 
-        const uuidToRemove = peerDataToRemove.uuid;
+        const userProviderIdToRemove = peerDataToRemove.userProviderId;
 
         const newProfiles = { ...state.profiles };
-        delete newProfiles[uuidToRemove];
+        delete newProfiles[userProviderIdToRemove];
 
         const newPeers = { ...state.peers };
         delete newPeers[peer];
@@ -149,11 +150,15 @@ export const useUsersStore = create<Store>()((set) => ({
 }));
 
 export const usePeers = () => useUsersStore((state) => state.peers);
+export const useProfiles = () => useUsersStore((state) => state.profiles);
+
+export const getPeer = (id: string) => useUsersStore.getState().peers[id];
 export const usePeer = (peer: string) =>
   useUsersStore((state) => state.peers[peer]);
 
-export const useProfiles = () => useUsersStore((state) => state.profiles);
-export const useProfile = (uuid: string) =>
-  useUsersStore((state) => state.profiles[uuid]);
+export const getProfile = (id: UserProviderId) =>
+  useUsersStore.getState().profiles[id];
+export const useProfile = (id: UserProviderId) =>
+  useUsersStore((state) => state.profiles[id]);
 
 export const useUserActions = () => useUsersStore((state) => state.actions);

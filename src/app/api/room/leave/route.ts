@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     }
 
     const roomData: Room | null = await redis.get(code);
-    const uuid = userToken[UNIQUE_USER_ID_FIELD_NAME] as string;
+    const uuid = userToken[UNIQUE_USER_ID_FIELD_NAME] as UserProviderId;
 
     if (roomData && uuid) {
       delete roomData.participants[uuid];

@@ -5,4 +5,4 @@ export const PEER_ID_FIELD_NAME = 'peer_id' as string;
 
 export const UNIQUE_USER_ID_FIELD_NAME = 'uuid' as string;
 
-export const CHAT_GRP_ROOM_NAME = 'room' as string;
+export const CHAT_GRP_ROOM_NAME = 'room:0' as UserProviderId;
