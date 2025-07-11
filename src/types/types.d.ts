@@ -127,15 +127,38 @@ type MessageData = {
  * Represents a generic data packet transmitted over a connection, indicating its type and payload.
  * Used for signaling different actions or information exchange in a peer-to-peer or client-server setup.
  */
-type Data = {
+type DataConnectionData = {
   /**
    * The type of data being transmitted, indicating the purpose of the payload:
-   * - 'INIT_SEND': Initial data being sent to establish a connection or state.
-   * - 'INIT_RECEIVED': Acknowledgment or response for initial data reception.
-   * - 'INIT_DONE': Signaling that initialization is complete.
+   * - 'CONN_INIT': Initial data being sent to establish a connection or state.
    * - 'MSG': A regular message data packet.
    */
-  type: 'INIT_SEND' | 'INIT_RECEIVED' | 'INIT_DONE' | 'MSG';
+  type: 'CONN_INIT' | 'CONN_INIT_DATA' | 'MSG';
   /** The actual payload of the data packet. Its type depends on the 'type' field. */
   data: unknown; // 'unknown' is used as the specific type depends on the 'type' field.
+};
+
+/**
+ * Represents the type of media stream.
+ * - 'C': Camera
+ * - 'S': Screen
+ */
+type MediaStreamType = 'C' | 'S';
+
+/**
+ * Represents metadata associated with a connected user's PeerJS DataConnection.
+ * This type bundles the user's unique provider-specific ID with their PeerJS connection ID,
+ * facilitating easy lookup and management of connected peers.
+ */
+type ConnUserMetadata = {
+  /**
+   * The unique identifier for the user from their authentication provider (e.g., "google:12345").
+   * This ID is used for application-level user identification.
+   */
+  userProviderId: UserProviderId;
+  /**
+   * The PeerJS ID (a string) assigned to this user's connection.
+   * This ID is used for establishing and managing peer-to-peer connections via PeerJS.
+   */
+  peerId: string;
 };

@@ -18,7 +18,7 @@ export function RoomForm() {
         <Card>
           <CardHeader className="text-center">
             <CardTitle className="text-xl">Welcome to Room</CardTitle>
-            <CardDescription>What you want to do?</CardDescription>
+            <CardDescription>Create a room or join with a code</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid gap-6">
