@@ -4,18 +4,13 @@ import { CHAT_GRP_ROOM_NAME } from '@/static/const';
 export type Store = {
   chats: Chat;
   actions: {
-    addChat: (uuid: string) => void;
-    addMessage: (uuid: string, message: Message) => void;
-    readChat: (uuid: string) => void;
+    addChat: (id: UserProviderId) => void;
+    addMessage: (id: UserProviderId, message: Message) => void;
+    readChat: (id: UserProviderId) => void;
   };
 };
 
-type ChatData = {
-  unread: number;
-  lastMessageAt: number;
-  messages: Message[];
-};
-const getInitChatData = (): ChatData => ({
+const getInitConversationData = (): Conversation => ({
   unread: 0,
   lastMessageAt: 0,
   messages: [],
@@ -23,32 +18,32 @@ const getInitChatData = (): ChatData => ({
 
 export const useChatsStore = create<Store>()((set) => ({
   chats: {
-    [CHAT_GRP_ROOM_NAME]: getInitChatData(),
+    [CHAT_GRP_ROOM_NAME]: getInitConversationData(),
   },
   actions: {
-    addChat: (uuid: string) => {
+    addChat: (id: UserProviderId) => {
       set((state) => ({
         chats: {
           ...state.chats,
-          [uuid]: getInitChatData(),
+          [id]: getInitConversationData(),
         },
       }));
     },
 
-    addMessage: (uuid: string, message: Message) => {
+    addMessage: (id: UserProviderId, message: Message) => {
       set((state) => {
-        if (!state.chats[uuid]) {
+        if (!state.chats[id]) {
           console.warn(
-            `💥 Attempted to add message to non-existent chat: ${uuid}. Call addChat first.`,
+            `💥 Attempted to add message to non-existent chat: ${id}. Call addChat first.`,
           );
           return state;
         }
 
-        const currentChat = state.chats[uuid];
+        const currentChat = state.chats[id];
         return {
           chats: {
             ...state.chats,
-            [uuid]: {
+            [id]: {
               ...currentChat,
               unread: currentChat.unread + 1,
               messages: [...currentChat.messages, message],
@@ -59,17 +54,17 @@ export const useChatsStore = create<Store>()((set) => ({
       });
     },
 
-    readChat: (uuid: string) => {
+    readChat: (id: UserProviderId) => {
       set((state) => {
-        if (!state.chats[uuid]) {
-          console.warn(`💥 Attempted to read non-existent chat: ${uuid}.`);
+        if (!state.chats[id]) {
+          console.warn(`💥 Attempted to read non-existent chat: ${id}.`);
           return state;
         }
-        const currentChat = state.chats[uuid];
+        const currentChat = state.chats[id];
         return {
           chats: {
             ...state.chats,
-            [uuid]: {
+            [id]: {
               ...currentChat,
               unread: 0,
             },
@@ -80,8 +75,8 @@ export const useChatsStore = create<Store>()((set) => ({
   },
 }));
 
-export const isChatExist = (uuid: string) =>
-  useChatsStore.getState().chats.hasOwnProperty(uuid);
+export const isChatExist = (id: UserProviderId) =>
+  useChatsStore.getState().chats.hasOwnProperty(id);
 
 export const useChats = () => useChatsStore((state) => state.chats);
 

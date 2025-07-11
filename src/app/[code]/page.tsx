@@ -2,21 +2,27 @@
 
 import * as React from 'react';
 import { toast } from 'sonner';
-import { User } from 'next-auth';
 import { useSession } from 'next-auth/react';
-import { DataConnection, Peer } from 'peerjs';
+import { DataConnection, MediaConnection, Peer } from 'peerjs';
 import { useParams, useRouter } from 'next/navigation';
 import { LoaderCircle, Phone, Send } from 'lucide-react';
 import { room } from '@/api/routes';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { isChatExist, useChatActions, useChats } from '@/store/chats';
-import { usePeers, useProfiles, useUserActions } from '@/store/users';
+import {
+  usePeers,
+  getProfile,
+  useProfiles,
+  useUserActions,
+} from '@/store/users';
+import { useDataConnection } from '@/hooks/use-data-connection';
 import {
   CHAT_GRP_ROOM_NAME,
   CODE_FIELD_NAME,
   PEER_ID_FIELD_NAME,
 } from '@/static/const';
+import { useMediaConnection } from '@/hooks/use-media-connection';
 
 export default function Room() {
   const params = useParams();
@@ -27,105 +33,16 @@ export default function Room() {
   const chats = useChats();
   const peers = usePeers();
   const profiles = useProfiles();
-  const { addUser, removePeer } = useUserActions();
   const { addMessage, addChat } = useChatActions();
+  const { incoming: incomingDataConnection, opening: openingDataConnection } =
+    useDataConnection();
+  const { incoming: incomingMediaConnection, opening: openingMediaConnection } =
+    useMediaConnection();
+
+  const { addProfile, addProfileCameraStream } = useUserActions();
 
   const [isLoading, setIsLoading] = React.useState(true);
   const [loadingMessage, setLoadingMessage] = React.useState('Welcome!');
-
-  const handleData = React.useCallback(
-    (data: unknown, conn: DataConnection) => {
-      const { type } = data as Data;
-      switch (type) {
-        case 'INIT_SEND': {
-          addUser((data as Data).data as User, conn);
-          if (session) {
-            const initData: Data = {
-              type: 'INIT_RECEIVED',
-              data: session.user,
-            };
-            conn.send(initData);
-          }
-          break;
-        }
-        case 'INIT_RECEIVED': {
-          addUser((data as Data).data as User, conn);
-          if (session) {
-            const initData: Data = {
-              type: 'INIT_DONE',
-              data: session.user,
-            };
-            conn.send(initData);
-          }
-          break;
-        }
-        case 'INIT_DONE': {
-          // addUser((data as Data).data as User, conn);
-          break;
-        }
-        case 'MSG': {
-          const { from, message } = (data as Data).data as MessageData;
-          if (!isChatExist(from)) {
-            addChat(from);
-          }
-          addMessage(from, message);
-          break;
-        }
-      }
-    },
-    [session, addUser, addChat, addMessage],
-  );
-
-  const openDataConnection = React.useCallback(
-    (peer: Peer, remotePeerId: string) => {
-      if (!remotePeerId) return;
-
-      const conn = peer.connect(remotePeerId, { reliable: true });
-
-      conn.on('open', () => {
-        console.log('Data channel opened: openDataConnection');
-        setIsLoading(false);
-      });
-
-      conn.on('data', (data) => {
-        console.log('Data received: openDataConnection');
-        handleData(data, conn);
-      });
-
-      conn.on('close', () => {
-        console.log('Data channel closed: openDataConnection');
-        removePeer(conn.peer);
-      });
-
-      conn.on('error', (err) =>
-        console.error('Data channel error:openDataConnection:', err),
-      );
-    },
-    [removePeer, handleData],
-  );
-
-  const incomingDataConnection = React.useCallback(
-    (conn: DataConnection) => {
-      conn.on('open', () => {
-        console.log('Data channel opened: incomingDataConnection');
-      });
-
-      conn.on('data', (data) => {
-        console.log('Data received: incomingDataConnection');
-        handleData(data, conn);
-      });
-
-      conn.on('close', () => {
-        console.log('Data channel closed: incomingDataConnection');
-        removePeer(conn.peer);
-      });
-
-      conn.on('error', (err) =>
-        console.error('Data channel error: incomingDataConnection:', err),
-      );
-    },
-    [removePeer, handleData],
-  );
 
   const joinRoom = React.useCallback(
     async (peer: Peer, localPeerId: string) => {
@@ -145,24 +62,59 @@ export default function Room() {
           router.push('/');
         }
 
-        const peerIds = Object.values(data.participants).filter(
-          (peerId) => peerId !== localPeerId,
-        );
-
-        if (!peerIds.length) {
-          setIsLoading(false);
-          return;
-        }
-
-        peerIds.forEach((peerId) => {
-          openDataConnection(peer, peerId);
+        const cameraStream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true,
         });
+
+        const localUserProviderId = session?.user?.id as UserProviderId;
+        Object.entries(data.participants).forEach(
+          ([remoteUserProviderId, remotePeerId]) => {
+            if (localPeerId === remotePeerId) {
+              addProfile(localUserProviderId, {
+                name: session?.user?.name ?? '',
+                email: session?.user?.email ?? '',
+                image: session?.user?.image ?? '',
+                peer: localPeerId,
+              });
+              addProfileCameraStream(localUserProviderId, cameraStream);
+            } else {
+              openingDataConnection(
+                peer,
+                localUserProviderId,
+                localPeerId,
+                remoteUserProviderId as UserProviderId,
+                remotePeerId,
+              );
+
+              openingMediaConnection(
+                peer,
+                localUserProviderId,
+                localPeerId,
+                remoteUserProviderId as UserProviderId,
+                remotePeerId,
+                cameraStream,
+                'C',
+              );
+            }
+          },
+        );
       } catch (err) {
         setLoadingMessage((err as Error).message);
         router.push('/');
+      } finally {
+        setIsLoading(false);
       }
     },
-    [code, router, openDataConnection],
+    [
+      code,
+      router,
+      session,
+      addProfile,
+      addProfileCameraStream,
+      openingDataConnection,
+      openingMediaConnection,
+    ],
   );
 
   const leaveRoom = React.useCallback(async () => {
@@ -192,17 +144,24 @@ export default function Room() {
       await joinRoom(peer, peerId);
     });
 
-    peer.on('connection', (conn: DataConnection) => {
-      const data: Data = {
-        type: 'INIT_SEND',
-        data: session.user,
-      };
+    peer.on('connection', (dataConnection: DataConnection) => {
+      incomingDataConnection(dataConnection);
+    });
 
-      conn.on('open', () => {
-        conn.send(data);
-      });
-
-      incomingDataConnection(conn);
+    peer.on('call', (mediaConnection: MediaConnection) => {
+      const incomingUserMetadata = mediaConnection.metadata
+        .incoming as ConnUserMetadata;
+      const user = getProfile(incomingUserMetadata.userProviderId);
+      switch (mediaConnection.metadata.type as MediaStreamType) {
+        case 'C': {
+          incomingMediaConnection(mediaConnection, user.cameraStream);
+          break;
+        }
+        case 'S': {
+          incomingMediaConnection(mediaConnection);
+          break;
+        }
+      }
     });
 
     peer.on('close', () => {
@@ -227,22 +186,22 @@ export default function Room() {
   const handleSendGroupMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (!session?.user?.id) return;
-    const author = session?.user?.id;
+    const author = session?.user?.id as UserProviderId;
 
     const message: Message = {
       author: author,
       content: (e.target as HTMLFormElement)['message'].value,
       timestamp: new Date().getTime(),
     };
-    Object.values(peers).forEach(({ conn }) => {
-      const data: Data = {
+    Object.values(peers).forEach(({ messageDataConnection }) => {
+      const data: DataConnectionData = {
         type: 'MSG',
         data: {
           from: CHAT_GRP_ROOM_NAME,
           message: message,
         },
       };
-      conn.send(data);
+      messageDataConnection?.send(data);
     });
     if (!isChatExist(CHAT_GRP_ROOM_NAME)) {
       addChat(CHAT_GRP_ROOM_NAME);
@@ -256,7 +215,7 @@ export default function Room() {
   const handleSendPrivateMessage = (peerId: string, e: React.FormEvent) => {
     e.preventDefault();
     if (!session?.user?.id) return;
-    const user = peers[peerId].uuid;
+    const user = peers[peerId].userProviderId;
     const local = session?.user?.id;
 
     const message: Message = {
@@ -265,14 +224,14 @@ export default function Room() {
       timestamp: new Date().getTime(),
     };
 
-    const data: Data = {
+    const data: DataConnectionData = {
       type: 'MSG',
       data: {
         from: local,
         message: message,
       },
     };
-    peers[peerId].conn.send(data);
+    peers[peerId].messageDataConnection?.send(data);
     if (!isChatExist(user)) {
       addChat(user);
     }
@@ -283,8 +242,8 @@ export default function Room() {
   };
 
   const handleLeaveRoom = React.useCallback(async () => {
-    Object.values(peers).forEach(({ conn }) => {
-      conn.close();
+    Object.values(peers).forEach(({ messageDataConnection }) => {
+      messageDataConnection?.close();
     });
     await leaveRoom();
   }, [peers, leaveRoom]);
@@ -300,6 +259,27 @@ export default function Room() {
         </>
       ) : null}
       <>
+        {Object.values(profiles).map(({ cameraStream, name, email }, index) => {
+          if (cameraStream) {
+            return (
+              <div className="m-6" key={index}>
+                <p className="flex justify-between">
+                  <span>{name}</span>
+                  <span>{email}</span>
+                </p>
+                <video
+                  ref={(video) => {
+                    if (video && cameraStream) {
+                      video.srcObject = cameraStream;
+                    }
+                  }}
+                  autoPlay
+                  className="scale-x-[-1]"
+                />
+              </div>
+            );
+          }
+        })}
         <div className="m-6 p-2 border-1 overflow-scroll rounded-md">
           {chats[CHAT_GRP_ROOM_NAME]?.messages.map((msg, index) => (
             <div key={index.toString()}>
@@ -339,35 +319,44 @@ export default function Room() {
           </form>
         </div>
 
-        {Object.values(peers).map(({ conn }) => {
-          return (
-            <div className="m-6" key={conn.peer}>
-              <div className="p-2 border-1 overflow-scroll rounded-md">
-                {chats[peers[conn.peer].uuid]?.messages.map((msg, index) => (
-                  <div key={index.toString()}>
-                    <p>Author: {msg.author}</p>
-                    <p>Content: {msg.content}</p>
-                    <p>Timestamp: {new Date(msg.timestamp).toLocaleString()}</p>
-                  </div>
-                ))}
-              </div>
-              <form
-                key={conn.peer}
-                onSubmit={(e) => handleSendPrivateMessage(conn.peer, e)}
-              >
-                <div className="flex w-full max-w-sm items-center gap-2">
-                  <Input
-                    name={conn.peer}
-                    type="text"
-                    placeholder="Type a message..."
-                  />
-                  <Button type="submit" variant="default">
-                    <Send /> {profiles[peers[conn.peer].uuid].email}
-                  </Button>
+        {Object.values(peers).map(({ userProviderId }) => {
+          const user = getProfile(userProviderId);
+          if (user && user.peer) {
+            return (
+              <div className="m-6" key={user.peer}>
+                <div className="mb-6 p-2 border-1 overflow-scroll rounded-md">
+                  {chats[peers[user.peer].userProviderId]?.messages.map(
+                    (msg, index) => (
+                      <div key={index.toString()}>
+                        <p>Author: {msg.author}</p>
+                        <p>Content: {msg.content}</p>
+                        <p>
+                          Timestamp: {new Date(msg.timestamp).toLocaleString()}
+                        </p>
+                      </div>
+                    ),
+                  )}
                 </div>
-              </form>
-            </div>
-          );
+                <form
+                  key={user.peer}
+                  onSubmit={(e) =>
+                    handleSendPrivateMessage(user.peer as string, e)
+                  }
+                >
+                  <div className="flex w-full max-w-sm items-center gap-2">
+                    <Input
+                      name={user.peer}
+                      type="text"
+                      placeholder="Type a message..."
+                    />
+                    <Button type="submit" variant="default">
+                      <Send /> {profiles[peers[user.peer].userProviderId].email}
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            );
+          }
         })}
       </>
     </div>

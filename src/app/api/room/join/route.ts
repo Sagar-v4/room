@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
 
     const peer_id = formData.get(PEER_ID_FIELD_NAME)?.toString().trim();
 
-    const uuid = userToken[UNIQUE_USER_ID_FIELD_NAME] as string;
+    const uuid = userToken[UNIQUE_USER_ID_FIELD_NAME] as UserProviderId;
     if (peer_id && uuid) {
       roomData.participants[uuid] = peer_id;
       await redis.set(code, roomData, {
