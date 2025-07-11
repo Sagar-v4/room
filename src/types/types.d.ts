@@ -9,7 +9,7 @@ type UserProviderId = `${string}:${string | number}`;
  */
 type DecodedUserProviderId = {
   provider: string;
-  id: number;
+  id: string | number;
 };
 
 /**

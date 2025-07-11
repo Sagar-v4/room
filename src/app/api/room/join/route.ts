@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { redis } from '@/redis';
-import { authjsDecodeJWT } from '@/lib/authjs-decode-jwt';
+import { decodeAuthjsJWT } from '@/lib/authjs-jwt';
 import { verify } from '@/lib/room-code';
 import {
   CODE_FIELD_NAME,
@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
   try {
     const ttl = Number(process.env.ROOM_TTL_IN_SEC);
 
-    const userToken = await authjsDecodeJWT(req);
+    const userToken = await decodeAuthjsJWT(req);
     if (!userToken) {
       return NextResponse.json({ [CODE_FIELD_NAME]: null });
     }
