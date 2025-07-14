@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { decode, JWTDecodeParams } from 'next-auth/jwt';
 
-export async function authjsDecodeJWT(req: NextRequest) {
+export async function decodeAuthjsJWT(req: NextRequest) {
   const secret = String(process.env.AUTH_JWT_SECRET);
   const cookieName = String(process.env.AUTH_COOKIE_NAME);
   const token = req.cookies.get(cookieName)?.value;
