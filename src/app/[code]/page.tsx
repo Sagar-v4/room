@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { useSession } from 'next-auth/react';
 import { DataConnection, MediaConnection, Peer } from 'peerjs';
 import { useParams, useRouter } from 'next/navigation';
-import { LoaderCircle, Phone, Send } from 'lucide-react';
+import { Camera, LoaderCircle, Mic, Phone, Send } from 'lucide-react';
 import { room } from '@/api/routes';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -43,6 +43,9 @@ export default function Room() {
 
   const [isLoading, setIsLoading] = React.useState(true);
   const [loadingMessage, setLoadingMessage] = React.useState('Welcome!');
+
+  const [isAudioOn, setIsAudioOn] = React.useState(true);
+  const [isVideoOn, setIsVideoOn] = React.useState(true);
 
   const joinRoom = React.useCallback(
     async (peer: Peer, localPeerId: string) => {
@@ -186,10 +189,10 @@ export default function Room() {
   const handleSendGroupMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (!session?.user?.id) return;
-    const author = session?.user?.id as UserProviderId;
+    const toUserProviderId = session?.user?.id as UserProviderId;
 
     const message: Message = {
-      author: author,
+      author: toUserProviderId,
       content: (e.target as HTMLFormElement)['message'].value,
       timestamp: new Date().getTime(),
     };
@@ -215,8 +218,8 @@ export default function Room() {
   const handleSendPrivateMessage = (peerId: string, e: React.FormEvent) => {
     e.preventDefault();
     if (!session?.user?.id) return;
-    const user = peers[peerId].userProviderId;
-    const local = session?.user?.id;
+    const toUserProviderId = peers[peerId].userProviderId;
+    const fromUserProviderId = session?.user?.id;
 
     const message: Message = {
       author: 'USER',
@@ -227,15 +230,15 @@ export default function Room() {
     const data: DataConnectionData = {
       type: 'MSG',
       data: {
-        from: local,
+        from: fromUserProviderId,
         message: message,
       },
     };
     peers[peerId].messageDataConnection?.send(data);
-    if (!isChatExist(user)) {
-      addChat(user);
+    if (!isChatExist(toUserProviderId)) {
+      addChat(toUserProviderId);
     }
-    addMessage(user, {
+    addMessage(toUserProviderId, {
       ...message,
       author: 'LOCAL',
     });
@@ -248,6 +251,26 @@ export default function Room() {
     await leaveRoom();
   }, [peers, leaveRoom]);
 
+  const toggleVideo = (localStream: MediaStream) => {
+    if (localStream) {
+      const tracks = localStream.getVideoTracks();
+      tracks.forEach(
+        (track: MediaStreamTrack) => (track.enabled = !track.enabled),
+      );
+      setIsVideoOn((prev) => !prev);
+    }
+  };
+
+  const toggleAudio = (localStream: MediaStream) => {
+    if (localStream) {
+      const tracks = localStream.getAudioTracks();
+      tracks.forEach(
+        (track: MediaStreamTrack) => (track.enabled = !track.enabled),
+      );
+      setIsAudioOn((prev) => !prev);
+    }
+  };
+
   return (
     <div>
       {isLoading ? (
@@ -259,40 +282,70 @@ export default function Room() {
         </>
       ) : null}
       <>
-        {Object.values(profiles).map(({ cameraStream, name, email }, index) => {
-          if (cameraStream) {
-            return (
-              <div className="m-6" key={index}>
-                <p className="flex justify-between">
-                  <span>{name}</span>
-                  <span>{email}</span>
-                </p>
-                <video
-                  ref={(video) => {
-                    if (video && cameraStream) {
-                      video.srcObject = cameraStream;
-                    }
-                  }}
-                  autoPlay
-                  className="scale-x-[-1]"
-                />
+        {session?.user?.id && (
+          <>
+            <div className="m-6 border-1 p-2 max-w-60">
+              <p className="flex justify-between">
+                <span>
+                  {getProfile(session.user?.id as UserProviderId)?.name}
+                </span>
+              </p>
+              <video
+                ref={(video) => {
+                  if (
+                    video &&
+                    getProfile(session.user?.id as UserProviderId)?.cameraStream
+                  ) {
+                    video.srcObject = getProfile(
+                      session.user?.id as UserProviderId,
+                    )?.cameraStream as MediaStream;
+                  }
+                }}
+                autoPlay
+                className="scale-x-[-1]"
+              />
+              <div className="flex justify-start mt-2 gap-2">
+                <Button
+                  type="button"
+                  variant={isVideoOn ? 'default' : 'destructive'}
+                  size="icon"
+                  onClick={() =>
+                    toggleVideo(
+                      getProfile(session.user?.id as UserProviderId)
+                        ?.cameraStream as MediaStream,
+                    )
+                  }
+                >
+                  <Camera />
+                </Button>
+                <Button
+                  type="button"
+                  variant={isAudioOn ? 'default' : 'destructive'}
+                  size="icon"
+                  onClick={() =>
+                    toggleAudio(
+                      getProfile(session.user?.id as UserProviderId)
+                        ?.cameraStream as MediaStream,
+                    )
+                  }
+                >
+                  <Mic />
+                </Button>
               </div>
-            );
-          }
-        })}
-        <div className="m-6 p-2 border-1 overflow-scroll rounded-md">
+            </div>
+          </>
+        )}
+        <div className="m-6 p-2 border-1 overflow-scroll rounded-md w-fit">
           {chats[CHAT_GRP_ROOM_NAME]?.messages.map((msg, index) => (
             <div key={index.toString()}>
               <p>Author: {msg.author}</p>
               <p>Content: {msg.content}</p>
               <p>Timestamp: {new Date(msg.timestamp).toLocaleString()}</p>
+              <hr />
             </div>
           ))}
-        </div>
-
-        <div className="m-6">
           <form onSubmit={handleSendGroupMessage}>
-            <div className="flex w-full max-w-sm items-center gap-2">
+            <div className="flex w-full max-w-sm items-center gap-2 mt-1">
               <Input
                 name="message"
                 type="text"
@@ -301,30 +354,43 @@ export default function Room() {
               <Button
                 type="submit"
                 variant="default"
-                size="icon"
+                // size="icon"
                 className="zise-8 pr-1"
               >
-                <Send />
+                <Send /> Group
               </Button>
               <Button
                 type="button"
                 variant="destructive"
-                size="icon"
-                className="zise-8 pr-1"
+                // size="icon"
                 onClick={handleLeaveRoom}
               >
-                <Phone />
+                <Phone /> End
               </Button>
             </div>
           </form>
         </div>
 
-        {Object.values(peers).map(({ userProviderId }) => {
+        {Object.values(peers).map(({ userProviderId }, index) => {
           const user = getProfile(userProviderId);
           if (user && user.peer) {
             return (
-              <div className="m-6" key={user.peer}>
+              <div className="m-6 w-fit" key={user.peer}>
                 <div className="mb-6 p-2 border-1 overflow-scroll rounded-md">
+                  <div className="m-2 max-w-60" key={index}>
+                    <p className="flex justify-between">
+                      <span>{user.name}</span>
+                    </p>
+                    <video
+                      ref={(video) => {
+                        if (video && user.cameraStream) {
+                          video.srcObject = user.cameraStream;
+                        }
+                      }}
+                      autoPlay
+                      className="scale-x-[-1]"
+                    />
+                  </div>
                   {chats[peers[user.peer].userProviderId]?.messages.map(
                     (msg, index) => (
                       <div key={index.toString()}>
@@ -333,27 +399,31 @@ export default function Room() {
                         <p>
                           Timestamp: {new Date(msg.timestamp).toLocaleString()}
                         </p>
+                        <hr />
                       </div>
                     ),
                   )}
+
+                  <form
+                    key={user.peer}
+                    onSubmit={(e) =>
+                      handleSendPrivateMessage(user.peer as string, e)
+                    }
+                    className="m-1"
+                  >
+                    <div className="flex w-full max-w-sm items-center gap-2">
+                      <Input
+                        name={user.peer}
+                        type="text"
+                        placeholder="Type a message..."
+                      />
+                      <Button type="submit" variant="default">
+                        <Send />
+                        {profiles[peers[user.peer].userProviderId].email}
+                      </Button>
+                    </div>
+                  </form>
                 </div>
-                <form
-                  key={user.peer}
-                  onSubmit={(e) =>
-                    handleSendPrivateMessage(user.peer as string, e)
-                  }
-                >
-                  <div className="flex w-full max-w-sm items-center gap-2">
-                    <Input
-                      name={user.peer}
-                      type="text"
-                      placeholder="Type a message..."
-                    />
-                    <Button type="submit" variant="default">
-                      <Send /> {profiles[peers[user.peer].userProviderId].email}
-                    </Button>
-                  </div>
-                </form>
               </div>
             );
           }
